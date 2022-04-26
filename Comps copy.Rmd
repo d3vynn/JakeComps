@@ -1,0 +1,49 @@
+---
+title: "Devynn's comprehensive exam"
+output: 
+  pdf_document:
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+I've given you a dataset (`WolvesYNP.csv`) that includes the variables `Year`, `Wolves` (wolf density in the park), `Elk` (number of elk in the park), `Aggressions` (number of aggressions observed between packs), and `Packs` (number of packs in the park). 
+
+
+\begin{figure}[h] 
+\centering \includegraphics[width=.7\textwidth]{Over-the-rainbow-by-wolfroad.jpg} 
+\end{figure}
+
+
+**1.** By hand (or \TeX) write out the likelihood and log-likelihood to model the annual average pack size in the park. Be sure to define all your variables and briefly justify the distribution you choose.  For this problem you can read up on Likelihood in Chapter 6 of [Ecological Models and Data in R](https://math.mcmaster.ca/~bolker/emdbook/book.pdf).
+
+\vspace{1cm}
+
+**2.** Write a function that takes as input the data and the relevant parameter values and outputs the negative log-likelihood.
+
+\vspace{1cm}
+
+**3.** Run an optimizer on the problem and describe all the output. If using R you can use the `optim` function. You can get the standard errors of your estimated parameters by inverting the Hessian matrix using the `solve` command.
+
+\vspace{1cm}
+
+**4.** Construct a confidence interval for the estimated mean by using the likelihood profile (Bolker chapter 6.4 or these [notes](https://sites.warnercnr.colostate.edu/gwhite/profile-likelihood-confidence-intervals/)). What advantages does this have over the typical Wald interval?
+
+\vspace{1cm}
+
+**5.** Now lets modify the problem a bit. I am interested in whether the average pack size changes with population density. Specifically we want to know if the average pack size increases as wolf density increases (e.g., the number of packs is constant) or whether the average pack size is constant, regardless of wolf density. Use a hypothesis test or an information criterion to determine whether this model is an improvement on the above model that has a constant mean.
+
+\vspace{1cm}
+\newpage
+
+**6.** OK, lets modify the problem a bit more. I have developed a prediction based on species interaction models that says the average pack size, $\Gamma$, should follow a  relationship given by, $\Gamma = \sqrt{a + b \cdot W}$, where $a$ and $b$ are coefficients. I want to you fit a more general form of the model,  $\Gamma = (a + b \cdot W)^\alpha$, where $\alpha$ is a fitted parameter. After you have fit the model, determine whether $\alpha=0.5$ using either a confidence interval from the profile likelihood or by making a suitable model comparison using an information criterion.
+
+
+\vspace{1cm}
+
+**7.** Redo the analysis by writing your own Metropolis or Metropolis-Hastings sampler. As a reference, I would recommend "Introducing Monte Carlo Methoods with R" by Robert and Casella (which I can loan you), or you can use any other reference you would like. Use the posterior to determine whether $\alpha=0.5$. 
+
+

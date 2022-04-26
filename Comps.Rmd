@@ -1,0 +1,306 @@
+---
+title: "Devynn's comprehensive exam"
+output: 
+  pdf_document:
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+I've given you a dataset (`WolvesYNP.csv`) that includes the variables `Year`, `Wolves` (wolf density in the park), `Elk` (number of elk in the park), `Aggressions` (number of aggressions observed between packs), and `Packs` (number of packs in the park). 
+
+
+```{r}
+library(ggplot2)
+# Data exploration
+
+WW <- read.csv(file="~/Documents/Github/Jake_Comps/WolvesYNP.csv")
+
+# Average pack size: average # of wolves / # of packs
+# This seems like my best first initial estimate.
+
+WW["AVGpackSize"] <- WW$Wolves / WW$Packs
+
+
+ggplot(WW)+
+  geom_point(aes(x=as.character(Year),y=AVGpackSize))
+
+ggplot(WW,aes(x=Packs,y=Wolves))+
+  geom_point()
+
+lm(WW$Packs ~ WW$Wolves)
+
+
+plot(WW$AVGpackSize ~ WW$Elk)
+hist(WW$AVGpackSize)
+plot(WW$Elk ~ WW$Year)
+
+```
+
+
+\begin{figure}[h] 
+\centering \includegraphics[width=.7\textwidth]{Over-the-rainbow-by-wolfroad.jpg} 
+\end{figure}
+
+
+**1.** By hand (or \TeX) write out the likelihood and log-likelihood to model the annual average pack size in the park. Be sure to define all your variables and briefly justify the distribution you choose.  For this problem you can read up on Likelihood in Chapter 6 of [Ecological Models and Data in R](https://math.mcmaster.ca/~bolker/emdbook/book.pdf).
+
+\vspace{1cm}
+
+**2.** Write a function that takes as input the data and the relevant parameter values and outputs the negative log-likelihood.
+
+```{r NegLL}
+library(stats4)
+mostSimple_NGL <- function(Obs, params, lambda){
+  b <- params[2]
+  
+  Pred <- rep(b, length.out=length(Obs))# I think this would be the mean of a horizontal line with same variance 
+  -sum(dpois(Obs, Pred, lambda, log=T))
+  
+}
+
+optim()
+
+
+
+
+
+
+
+NegLogLike <- function(p){
+    -sum(log(dnorm(WW$AVGpackSize, p[1], p[2])))
+}
+
+p <- c(8, 4)
+mleoutput <- optim(p, NegLogLike)
+
+hh <- hist(WW$AVGpackSize, freq=FALSE, xlim=c(0, 20))
+lines(1:20, dnorm(1:20, mleoutput$par[1], mleoutput$par[2]))
+
+###
+#### This One! bbbbbuuuuuttttt what about the confidence interval... I guess that could also be the standard deviation, which could actually have its own loglikehood
+
+NegLogLikeGam <- function(p){
+    -sum(dgamma(WW$AVGpackSize, p, log=T))
+}
+
+p <- c(8)
+mleoutput <- optim(par=p, NegLogLikeGam)
+
+hist(WW$AVGpackSize, freq = F)
+lines(rgamma(length(WW$Year),shape = mleoutput$par))
+
+### I kinda think I should focus on this one!
+NegLogLike <- function(logKcap,logGrate,logSigma, AVGPsize){
+  
+   #<- WW$AVGpackSize
+  # parameters
+  Kcap  <- (logKcap)
+  Grate <- (logGrate)
+  Sigma <- (logSigma)
+  S0    <- Kcap
+  time  <- seq(1:length(AVGPsize))
+  # deterministic prediction
+  Pred <- (Kcap * S0*(exp(Grate*time)))/ 
+          (Kcap +S0*(exp(Grate*time)-1))
+  
+  NLL <- -1*sum(dnorm(AVGPsize,Pred,Sigma,log = TRUE))
+  
+  return(NLL)
+}
+
+
+test <- NegLogLike(logKcap=log(10),
+                   logGrate=log(0.3),
+                   logSigma = log(2))
+
+
+Params <- list(logKcap=WW$AVGpackSize[1],
+               logGrate=0.3,
+               logSigma = 2)
+
+#mleoutput <- optim(Params,NegLogLike)
+
+mleoutput <- mle(NegLogLike,start=Params)
+
+# extracting parameters
+K     <- exp(coef(mleoutput)[1])
+r     <- exp(coef(mleoutput)[2])
+sigma <- exp(coef(mleoutput)[3])
+
+### Checking by eye:
+s_0 <- WW$AVGpackSize[1]
+t <- seq(1:length(WW$Year))
+predictedVals <- ((K * s_0 * exp(r * t))/ K + s_0 * (exp(r*t)-1)) + rnorm(t) 
+
+WW["Predicted"] <- predictedVals
+
+ggplot(data=WW)+
+  geom_point(aes(x=Year, y=AVGpackSize), color="blue")+
+  geom_point(aes(x=Year, y=Predicted), color="red")
+
+```
+
+\vspace{1cm}
+
+```{r}
+#### This One! bbbbbuuuuuttttt what about the confidence interval... I guess that could also be the standard deviation, which could actually have its own loglikehood
+
+NegLogLikeGam <- function(params){
+  shape <- params[1]
+  rate  <- params[2]
+    -sum(dgamma(WW$AVGpackSize, shape=shape, rate=rate, log=T))
+}
+
+NegLogLikeLNorm <- function(params, obs){
+  mean <- params[1]
+  sd   <- params[2]
+    -sum(dlnorm(obs,
+                meanlog = mean, 
+                sdlog = sd, log = T))
+}
+
+
+
+m2 <- optim(par=p, NegLogLikeLNorm, obs=WW$AVGpackSize, hessian = T)
+
+
+mean(WW$AVGpackSize)
+
+NLL_lnorm_sd <- function(params, obs, sd){
+
+  mean <- params[1]
+  -sum(dlnorm(obs,
+              meanlog = mean, 
+              sdlog = sd, 
+              log = T))
+}
+
+NLL_lnorm_mean <- function(params, obs, mean){
+    sd <- exp(params[2])
+    -sum(dlnorm(obs,
+                meanlog = mean, 
+                sdlog = sd, 
+                log = T))
+} 
+
+sdVec    <- log(seq(1.1, 2.0, length=100))
+sdProf   <- numeric(100)
+meanVec  <- log(seq(6, 12, length=100))
+meanProf <- numeric(100)
+
+p <- c(log(8),log(1.9))
+
+for (i in 1:100){
+  sdProf[i] <- optim(par=p,
+                     NLL_lnorm_sd,
+                     obs=WW$AVGpackSize,
+                     sd=sdVec[i])$value
+  
+  meanProf[i] <- optim(par=p,
+                       NLL_lnorm_mean,
+                       obs=WW$AVGpackSize,
+                       mean=meanVec[i])$value
+}
+
+plot(sdVec, sdProf)
+
+plot(meanVec, meanProf)
+
+prof.lower <- meanProf[1:which.min(meanProf)]
+prof.mvec  <- meanVec[1:which.min(meanProf)]
+approx(prof.lower,prof.mvec, xout = -logLik(m2) - qchisq(.95,1)/2)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**3.** Run an optimizer on the problem and describe all the output. 
+If using R you can use the `optim` function. 
+You can get the standard errors of your estimated parameters by inverting the Hessian matrix using the `solve` command.
+
+\vspace{1cm}
+
+**4.** Construct a confidence interval for the estimated mean by using the likelihood profile (Bolker chapter 6.4 or these [notes](https://sites.warnercnr.colostate.edu/gwhite/profile-likelihood-confidence-intervals/)). What advantages does this have over the typical Wald interval?
+
+\vspace{1cm}
+
+**5.** Now lets modify the problem a bit. I am interested in whether the average pack size changes with population density. Specifically we want to know if the average pack size increases as wolf density increases (e.g., the number of packs is constant) or whether the average pack size is constant, regardless of wolf density. 
+Use a hypothesis test or an information criterion to determine whether this model is an improvement on the above model that has a constant mean.
+```{r}
+####  does the average pack size increase as 
+mean <- a + b*W
+
+NegLogLikeLNorm <- function(params, data){
+  a <- params[1]
+  b <- params[2]
+  mean <- a + b*data$Wolf
+  sd   <- params[3]
+    -sum(dlnorm(data$obs,
+                meanlog = mean, 
+                sdlog = sd, log = T))
+}
+
+
+Ds <- data.frame(obs=WW$AVGpackSize,
+                 Wolf=WW$Wolves)
+
+Pvals <- c(log(10),log(9),1.2)
+
+optim(Pvals, NegLogLikeLNorm, data=Ds)
+
+
+#### Do the same sort of likelihood tests and then figure out also how to do the ratio test.
+```
+\vspace{1cm}
+\newpage
+
+**6.** OK, lets modify the problem a bit more. I have developed a prediction based on species interaction models that says the average pack size, $\Gamma$, should follow a  relationship given by, $\Gamma = \sqrt{a + b \cdot W}$, where $a$ and $b$ are coefficients. I want to you fit a more general form of the model,  
+$\Gamma = (a + b \cdot W)^\alpha$, where $\alpha$ is a fitted parameter. 
+After you have fit the model, determine whether 
+$\alpha=0.5$ using either a confidence interval 
+from the profile likelihood or by making a suitable model 
+comparison using an information criterion.
+
+```{r}
+### The other predicted version
+
+#gamma <- (a + b*data$Wolf)^alpha
+
+NegLogLikeLNorm <- function(params, data){
+  a     <- params[1]
+  b     <- params[2]
+  alpha <- params[3]
+  mean  <- (a + b*data$Wolf)^alpha
+  sd    <- params[4]
+    -sum(dlnorm(data$obs,
+                meanlog = mean, 
+                sdlog = sd, log = T))
+}
+
+mean <- exp(mu + 0.5 * sigma^2)
+```
+
+\vspace{1cm}
+
+**7.** Redo the analysis by writing your own Metropolis or Metropolis-Hastings sampler. As a reference, I would recommend "Introducing Monte Carlo Methoods with R" by Robert and Casella (which I can loan you), or you can use any other reference you would like. Use the posterior to determine whether $\alpha=0.5$. 
+
+I am going to use JAGs/Bugs instead
+
